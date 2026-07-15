@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>FB TMF Playable Hold it</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #111;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Адаптивний контейнер 9:16 */
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 177.78vw; 
+            max-width: 56.25vh; 
+            max-height: 100vh;
+            background-color: #000;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            cursor: none;
+        }
+
+        .scene {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        .scene.active {
+            display: block;
+        }
+
+        img {
+            position: absolute;
+            pointer-events: none;
+            max-width: 100%;
+        }
+        .clickable {
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Глобальна кнопка Mute */
+        #mute-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 40px;
+            height: 40px;
+            z-index: 1000;
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 2px solid #fff;
+            border-radius: 50%;
+            display: none; 
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: transform 0.2s;
+        }
+        #mute-btn:active {
+            transform: scale(0.9);
+        }
+
+        /* --- Анімації --- */
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.08); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+        @keyframes bounce-pointer {
+            0%, 100% { transform: translate(-50%, -50%) translateX(70) translateY(0) scale(1); }
+            50% { transform: translate(-50%, -50%) translateX(-32px) translateY(-32px) scale(1.05); }
+        }
+        @keyframes hand-idle {
+            0%, 100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+            50% { transform: translate(-50%, -50%) scale(1.05) rotate(-3deg); }
+        }
+
+        /* --- Сцена 1: Сплеш --- */
+        #splash-bg {
+            background-image: url('assets/splash_bg.png');
+        }
+        #splash-btn {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+        #splash-hand {
+            position: absolute;
+            top: 58%;
+            left: 55%;
+            transform: translate(-50%, -50%);
+            width: 15%;
+            animation: bounce-pointer 1.2s infinite ease-in-out;
+        }
+
+        /* --- Сцена 2: Відео + Баббл --- */
+        #bubble-img {
+            position: absolute;
+            top: 15%;
+            left: 70%;
+            transform: translateX(-50%);
+            width: 40%;
+            z-index: 10;
+        }
+
+        /* --- Сцена 3: Вибір сценарію --- */
+        .choice-btn-container {
+            position: absolute;
+            top: 10%;
+            left: 45%;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            z-index: 10;
+        }
+        .choice-btn {
+            position: relative;
+            width: 100%;
+            max-width: 380px;
+            height: auto;
+            max-height: 45%;
+            object-fit: contain;
+            pointer-events: auto;
+            cursor: pointer;
+            animation: pulse 1.8s infinite ease-in-out;
+        }
+
+        /* --- Сцена 4-1: Сценарій "Let him in" --- */
+        #scene-let-in {
+            z-index: 2;
+        }
+
+        /* --- Сцена 4-2: Гра Hold the door --- */
+        #hold-title {
+            position: absolute;
+            top: 12%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            z-index: 5;
+        }
+        #hold-title.slide-up {
+            opacity: 0;
+            transform: translate(-50%, -50px);
+        }
+        
+        #hold-hand {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 22%;
+            z-index: 100;
+            pointer-events: none;
+            transition: transform 0.1s cubic-bezier(0.25, 1, 0.5, 1); 
+        }
+        .hand-waiting {
+            animation: hand-idle 1.6s infinite ease-in-out;
+        }
+        .hand-pressed {
+            transform: translate(-50%, -50%) scale(0.8) rotate(-8deg) !important;
+            filter: brightness(0.95);
+        }
+
+        #progress-container {
+            position: absolute;
+            bottom: 12%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 18px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            display: none;
+            z-index: 5;
+        }
+        #progress-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #00f2fe, #4facfe);
+            transition: width 0.05s linear;
+        }
+
+        /* --- Сцена 5: Фінал (CTA) --- */
+        #cta-btn {
+            position: absolute;
+            bottom: 20%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 65%;
+            animation: pulse 1.5s infinite ease-in-out;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+        }
+        #cta-btn.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        #cta-text {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        #cta-text.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+
+        <div id="mute-btn" class="clickable">🔊</div>
+
+        <!-- СЦЕНА 1: СПЛЕШ -->
+        <div id="scene-splash" class="scene active">
+            <div id="splash-bg" class="scene active"></div>
+            <img id="splash-btn" class="clickable" src="assets/splash_btn.png" alt="Play">
+            <img id="splash-hand" src="assets/hand_pointer.png" alt="Pointer">
+        </div>
+
+        <!-- СЦЕНА 2: ВІДЕО ТА БАББЛ -->
+        <div id="scene-video-bubble" class="scene">
+            <video id="main-video" playsinline muted></video>
+            <img id="bubble-img" src="assets/bubble.png" alt="Bubble" style="display: none;">
+        </div>
+
+        <!-- СЦЕНА 3: ВИБІР СЦЕНАРІЮ -->
+        <div id="scene-choice" class="scene">
+            <video id="choice-bg-video" playsinline muted></video> 
+            <div class="choice-btn-container">
+                <img id="btn-let-in" class="choice-btn clickable" src="assets/btn_let_in.png" alt="Let him in">
+                <img id="btn-hold-door" class="choice-btn clickable" src="assets/btn_hold_door.png" alt="Hold the door">
+            </div>
+        </div>
+
+        <!-- СЦЕНА 4-1: Сценарій "Let him in" (Без muted для звуку!) -->
+        <div id="scene-let-in" class="scene">
+            <video id="let-in-video" playsinline></video>
+        </div>
+
+        <!-- СЦЕНА 4-2: Сценарій "Hold the door" (Міні-гра) -->
+        <div id="scene-hold-game" class="scene">
+            <video id="hold-bg-video" playsinline muted></video> 
+            <img id="hold-title" src="assets/hold_title.png" alt="Hold the Door!">
+            <img id="hold-hand" class="hand-waiting" src="assets/hand_pointer.png" alt="Hand">
+            
+            <div id="progress-container">
+                <div id="progress-bar"></div>
+            </div>
+        </div>
+
+        <!-- СЦЕНА 5: ФІНАЛ (CTA З ВІДЕО-ФОНОМ, без muted!) -->
+        <div id="scene-final" class="scene">
+            <video id="final-video" playsinline></video>
+            <img id="cta-text" src="assets/final_text.png" alt="Text">
+            <img id="cta-btn" class="clickable" src="assets/cta_btn.png" alt="Play Now">
+        </div>
+
+    </div>
+
+    <audio id="bg-music" src="assets/bg_music.mp3" loop></audio>
+    <audio id="snd-bubble" src="assets/bubble_voice.mp3"></audio>
+    <audio id="snd-let-in-end" src="assets/let_in_voice.mp3"></audio>
+    <audio id="snd-final-cta" src="assets/cta_voice.mp3"></audio>
+
+    <script>
+        const ASSETS = {
+            videoScene2: "assets/scene2_door_open.mp4",  
+            videoLetIn: "assets/scene_let_in.mp4",        
+            videoHoldDoor: "assets/scene_hold_door.mp4",  
+            videoFinal: "assets/scene_final.mp4",     
+            clickUrl: "https://your-redirect-link.com"           
+        };
+
+        const gameContainer = document.getElementById('game-container');
+        const bgMusic = document.getElementById('bg-music');
+        const muteBtn = document.getElementById('mute-btn');
+        
+        let isMuted = false;
+        let holdTimer = null;
+        let videoPlaybackTimer = null; 
+        let holdProgress = 0; 
+        const holdDuration = 5000; 
+        const updateInterval = 40; 
+        let isHolding = false;
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            
+            muteBtn.textContent = isMuted ? "🔇" : "🔊";
+
+            const audios = document.querySelectorAll('audio');
+            audios.forEach(audio => {
+                audio.muted = isMuted;
+            });
+
+            const videos = document.querySelectorAll('video');
+            videos.forEach(video => {
+                
+                video.muted = isMuted || video.id === 'main-video' || video.id === 'choice-bg-video' || video.id === 'hold-bg-video'; 
+            });
+        }
+
+        muteBtn.addEventListener('click', toggleMute);
+
+        function applyGlobalMuteStateToElement(element) {
+            element.muted = isMuted;
+        }
+
+        function switchScene(fromId, toId) {
+            document.getElementById(fromId).classList.remove('active');
+            document.getElementById(toId).classList.add('active');
+        }
+
+        // --- СЦЕНА 1: СПЛЕШ ---
+        document.getElementById('splash-btn').addEventListener('click', () => {
+            // Відображаємо кнопку Mute після першого тапу користувача
+            muteBtn.style.display = "flex";
+            
+            bgMusic.volume = 0.4;
+            bgMusic.play().catch(e => console.log("Музика заблокована"));
+            startScene2();
+        });
+
+        // --- СЦЕНА 2: ВІДЕО ТА БАББЛ ---
+        function startScene2() {
+            switchScene('scene-splash', 'scene-video-bubble');
+            const video = document.getElementById('main-video');
+            video.src = ASSETS.videoScene2;
+            video.load();
+            video.play();
+
+            setTimeout(() => {
+                const bubble = document.getElementById('bubble-img');
+                bubble.style.display = 'block';
+                const bubbleVoice = document.getElementById('snd-bubble');
+                applyGlobalMuteStateToElement(bubbleVoice);
+                bubbleVoice.play();
+            }, 1000);
+
+            video.onended = () => {
+                startChoiceScene();
+            };
+        }
+
+        // --- СЦЕНА 3: ВИБІР СЦЕНАРІЮ ---
+        function startChoiceScene() {
+            switchScene('scene-video-bubble', 'scene-choice');
+            
+            const choiceBg = document.getElementById('choice-bg-video');
+            choiceBg.src = ASSETS.videoScene2;
+            choiceBg.load();
+            choiceBg.onloadedmetadata = () => {
+                choiceBg.currentTime = choiceBg.duration;
+            };
+
+            document.getElementById('btn-let-in').addEventListener('click', () => {
+                startLetInScenario();
+            });
+
+            document.getElementById('btn-hold-door').addEventListener('click', () => {
+                startHoldDoorScenario();
+            });
+        }
+
+        // --- СЦЕНАРІЙ 1: LET HIM IN ---
+        function startLetInScenario() {
+            switchScene('scene-choice', 'scene-let-in');
+            const video = document.getElementById('let-in-video');
+            video.src = ASSETS.videoLetIn;
+            video.muted = isMuted; 
+            video.load();
+            video.play();
+
+            video.onended = () => {
+                showFinalCTA();
+            };
+        }
+
+        // --- СЦЕНАРІЙ 2: HOLD THE DOOR (МІНІ-ГРА) ---
+        function startHoldDoorScenario() {
+            switchScene('scene-choice', 'scene-hold-game');
+
+            const holdBg = document.getElementById('hold-bg-video');
+            holdBg.src = ASSETS.videoHoldDoor;
+            holdBg.muted = true; 
+            holdBg.loop = false; 
+            holdBg.load();
+            
+            const title = document.getElementById('hold-title');
+            const hand = document.getElementById('hold-hand');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress-bar');
+            
+            const tensionSound = document.getElementById('snd-let-in-end');
+
+            function moveHand(e) {
+                const rect = gameContainer.getBoundingClientRect();
+                let x, y;
+
+                if (e.touches && e.touches[0]) {
+                    x = e.touches[0].clientX - rect.left;
+                    y = e.touches[0].clientY - rect.top;
+                } else {
+                    x = e.clientX - rect.left;
+                    y = e.clientY - rect.top;
+                }
+
+                const posX = Math.max(0, Math.min(x, rect.width));
+                const posY = Math.max(0, Math.min(y, rect.height));
+
+                hand.style.left = `${posX}px`;
+                hand.style.top = `${posY}px`;
+            }
+
+            gameContainer.addEventListener('mousemove', moveHand);
+            gameContainer.addEventListener('touchmove', moveHand, { passive: true });
+
+            setTimeout(() => {
+                title.classList.add('slide-up');
+                progressContainer.style.display = 'block';
+                
+                tensionSound.loop = true;
+                applyGlobalMuteStateToElement(tensionSound);
+                tensionSound.play().catch(e => console.log("Звук заблоковано:", e));
+
+                gameContainer.addEventListener('mousedown', startHolding);
+                gameContainer.addEventListener('touchstart', startHolding, { passive: true });
+
+                window.addEventListener('mouseup', stopHolding);
+                window.addEventListener('touchend', stopHolding);
+            }, 1500);
+
+            function playVideoBackward() {
+                clearInterval(videoPlaybackTimer);
+                videoPlaybackTimer = setInterval(() => {
+                    if (holdBg.currentTime > 0.1) {
+                        holdBg.currentTime -= 0.08; 
+                    } else {
+                        holdBg.currentTime = 0;
+                        clearInterval(videoPlaybackTimer);
+                        if (!isHolding) {
+                            holdBg.play().catch(e => {});
+                        }
+                    }
+                }, 40);
+            }
+
+            function playVideoForward() {
+                clearInterval(videoPlaybackTimer);
+                holdBg.play().catch(e => {});
+                
+                videoPlaybackTimer = setInterval(() => {
+                    if (holdBg.ended || holdBg.currentTime >= holdBg.duration - 0.1) {
+                        holdBg.currentTime = 0;
+                        holdBg.play().catch(e => {});
+                    }
+                }, 100);
+            }
+
+            function startHolding(e) {
+                if (isHolding) return;
+                isHolding = true;
+
+                hand.classList.remove('hand-waiting');
+                hand.classList.add('hand-pressed');
+
+                playVideoForward(); 
+                
+                tensionSound.pause();
+
+                holdTimer = setInterval(() => {
+                    holdProgress += (updateInterval / holdDuration) * 100;
+                    if (holdProgress >= 100) {
+                        holdProgress = 100;
+                        endHoldGame(true);
+                    }
+                    progressBar.style.width = holdProgress + '%';
+                }, updateInterval);
+            }
+
+            function stopHolding() {
+                if (!isHolding) return;
+                isHolding = false;
+
+                hand.classList.remove('hand-pressed');
+                hand.classList.add('hand-waiting');
+
+                playVideoBackward(); 
+                
+                tensionSound.loop = true;
+                applyGlobalMuteStateToElement(tensionSound);
+                tensionSound.play().catch(e => console.log("Блокування звуку:", e));
+
+                clearInterval(holdTimer);
+            }
+
+            function endHoldGame(success) {
+                clearInterval(holdTimer);
+                clearInterval(videoPlaybackTimer);
+                
+                tensionSound.pause();
+                tensionSound.loop = false;
+                tensionSound.currentTime = 0;
+                
+                gameContainer.removeEventListener('mousemove', moveHand);
+                gameContainer.removeEventListener('touchmove', moveHand);
+                gameContainer.removeEventListener('mousedown', startHolding);
+                gameContainer.removeEventListener('touchstart', startHolding);
+                window.removeEventListener('mouseup', stopHolding);
+                window.removeEventListener('touchend', stopHolding);
+
+                if (success) {
+                    showFinalCTA();
+                }
+            }
+        }
+
+        // --- СЦЕНА 5: ФІНАЛ (CTA З ВІДЕО-ФОНОМ) ---
+        function showFinalCTA() {
+            document.getElementById('scene-let-in').classList.remove('active');
+            document.getElementById('scene-hold-game').classList.remove('active');
+            document.getElementById('scene-final').classList.add('active');
+
+            const finalVideo = document.getElementById('final-video');
+            const ctaText = document.getElementById('cta-text');
+            const ctaBtn = document.getElementById('cta-btn');
+
+            finalVideo.src = ASSETS.videoFinal;
+            finalVideo.muted = isMuted; 
+            finalVideo.loop = false; 
+            finalVideo.load();
+            finalVideo.play().catch(e => console.log("Помилка відео фіналу:", e));
+
+            const ctaVoice = document.getElementById('snd-final-cta');
+            applyGlobalMuteStateToElement(ctaVoice);
+            ctaVoice.play().catch(e => console.log("Звук CTA заблоковано"));
+
+            setTimeout(() => {
+                ctaText.classList.add('show');
+                ctaBtn.classList.add('show');
+            }, 500);
+
+            finalVideo.onended = () => {
+                console.log("Відео завершено.");
+            };
+
+            ctaBtn.addEventListener('click', () => {
+                console.log("Redirecting to:", ASSETS.clickUrl);
+                window.open(ASSETS.clickUrl, '_self');
+            });
+        }
+    </script>
+</body>
+</html>

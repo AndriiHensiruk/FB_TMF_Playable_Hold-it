@@ -102,8 +102,13 @@
             50% { transform: translate(-50%, -50%) scale(1.08); }
             100% { transform: translate(-50%, -50%) scale(1); }
         }
+        @keyframes pulse-normal {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.06); }
+            100% { transform: scale(1); }
+        }
         @keyframes bounce-pointer {
-            0%, 100% { transform: translate(-50%, -50%) translateX(70) translateY(0) scale(1); }
+            0%, 100% { transform: translate(-50%, -50%) translateX(70px) translateY(0) scale(1); }
             50% { transform: translate(-50%, -50%) translateX(-32px) translateY(-32px) scale(1.05); }
         }
         @keyframes hand-idle {
@@ -117,7 +122,7 @@
         }
         #splash-btn {
             position: absolute;
-            top: 45%;
+            top: 55%;
             left: 50%;
             transform: translate(-50%, -50%);
             width: 90%;
@@ -142,41 +147,58 @@
             z-index: 10;
         }
 
-        /* --- Сцена 3: Вибір сценарію --- */
+        /* --- Сцена 3: Вибір сценарію (Адаптивне центрування) --- */
         .choice-btn-container {
             position: absolute;
-            top: 10%;
-            left: 45%;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            gap: 15px;
+            justify-content: center; /* Центрування по вертикалі */
+            align-items: center;     /* Центрування по горизонталі */
+            gap: 20px;               /* Оптимальний відступ між кнопками */
             z-index: 10;
+            padding: 20px;
         }
         .choice-btn {
-            position: relative;
-            width: 100%;
-            max-width: 380px;
+            position: relative; /* Робимо відносним, щоб працював flex */
+            width: 120%;         /* Адаптивна ширина кнопки під екран */
+            max-width: 620px;   /* Обмежуємо максимальну ширину на великих екранах */
             height: auto;
-            max-height: 45%;
             object-fit: contain;
             pointer-events: auto;
             cursor: pointer;
-            animation: pulse 1.8s infinite ease-in-out;
+            animation: pulse-normal 1.8s infinite ease-in-out;
         }
 
         /* --- Сцена 4-1: Сценарій "Let him in" --- */
         #scene-let-in {
             z-index: 2;
         }
+        #let-in-redirect-btn {
+            position: absolute;
+            top: 55%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            width: 80%;
+            z-index: 20;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #let-in-redirect-btn.show {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate(-50%, -50%) scale(1);
+            animation: pulse 1.5s infinite ease-in-out 0.5s;
+        }
 
         /* --- Сцена 4-2: Гра Hold the door --- */
         #hold-title {
             position: absolute;
-            top: 12%;
+            top: 22%;
             left: 50%;
             transform: translateX(-50%);
             width: 80%;
@@ -213,8 +235,8 @@
             transform: translateX(-50%);
             width: 80%;
             height: 18px;
-            background: rgba(0, 0, 0, 0.6);
-            border: 2px solid #fff;
+            background: rgba(7, 0, 0, 0.6);
+            border: 2px solid #0d0000;
             border-radius: 10px;
             overflow: hidden;
             display: none;
@@ -223,11 +245,11 @@
         #progress-bar {
             width: 0%;
             height: 100%;
-            background: linear-gradient(90deg, #00f2fe, #4facfe);
+            background: linear-gradient(90deg, #fe001e, #fe4f60);
             transition: width 0.05s linear;
         }
 
-        /* --- Сцена 5: Фінал (CTA) --- */
+        /* --- Сцена 5: Фінал (CTA для вибору "Hold the door") --- */
         #cta-btn {
             position: absolute;
             bottom: 20%;
@@ -237,7 +259,7 @@
             animation: pulse 1.5s infinite ease-in-out;
             z-index: 10;
             opacity: 0;
-            transition: opacity 0.5s ease;
+            transition: opacity 0.8s ease;
             pointer-events: none;
         }
         #cta-btn.show {
@@ -247,13 +269,13 @@
         
         #cta-text {
             position: absolute;
-            top: 20%;
+            top: 40%;
             left: 50%;
             transform: translateX(-50%);
             width: 80%;
             z-index: 10;
             opacity: 0;
-            transition: opacity 0.5s ease;
+            transition: opacity 0.8s ease;
         }
         #cta-text.show {
             opacity: 1;
@@ -270,7 +292,6 @@
         <div id="scene-splash" class="scene active">
             <div id="splash-bg" class="scene active"></div>
             <img id="splash-btn" class="clickable" src="assets/splash_btn.png" alt="Play">
-            <img id="splash-hand" src="assets/hand_pointer.png" alt="Pointer">
         </div>
 
         <!-- СЦЕНА 2: ВІДЕО ТА БАББЛ -->
@@ -288,9 +309,10 @@
             </div>
         </div>
 
-        <!-- СЦЕНА 4-1: Сценарій "Let him in" (Без muted для звуку!) -->
+        <!-- СЦЕНА 4-1: Сценарій "Let him in" (Відео грає + кнопка з'являється в кінці) -->
         <div id="scene-let-in" class="scene">
             <video id="let-in-video" playsinline></video>
+            <img id="let-in-redirect-btn" class="clickable" src="assets/let_in_intro_btn.png" alt="Get Offer Now">
         </div>
 
         <!-- СЦЕНА 4-2: Сценарій "Hold the door" (Міні-гра) -->
@@ -304,7 +326,7 @@
             </div>
         </div>
 
-        <!-- СЦЕНА 5: ФІНАЛ (CTA З ВІДЕО-ФОНОМ, без muted!) -->
+        <!-- СЦЕНА 5: ФІНАЛ -->
         <div id="scene-final" class="scene">
             <video id="final-video" playsinline></video>
             <img id="cta-text" src="assets/final_text.png" alt="Text">
@@ -351,7 +373,6 @@
 
             const videos = document.querySelectorAll('video');
             videos.forEach(video => {
-                
                 video.muted = isMuted || video.id === 'main-video' || video.id === 'choice-bg-video' || video.id === 'hold-bg-video'; 
             });
         }
@@ -369,9 +390,7 @@
 
         // --- СЦЕНА 1: СПЛЕШ ---
         document.getElementById('splash-btn').addEventListener('click', () => {
-            // Відображаємо кнопку Mute після першого тапу користувача
             muteBtn.style.display = "flex";
-            
             bgMusic.volume = 0.4;
             bgMusic.play().catch(e => console.log("Музика заблокована"));
             startScene2();
@@ -391,7 +410,7 @@
                 const bubbleVoice = document.getElementById('snd-bubble');
                 applyGlobalMuteStateToElement(bubbleVoice);
                 bubbleVoice.play();
-            }, 1000);
+            }, 1500);
 
             video.onended = () => {
                 startChoiceScene();
@@ -409,6 +428,12 @@
                 choiceBg.currentTime = choiceBg.duration;
             };
 
+            // Запобігаємо подвоєнню подій кліків
+            const btnLetIn = document.getElementById('btn-let-in');
+            const btnHoldDoor = document.getElementById('btn-hold-door');
+            btnLetIn.replaceWith(btnLetIn.cloneNode(true));
+            btnHoldDoor.replaceWith(btnHoldDoor.cloneNode(true));
+
             document.getElementById('btn-let-in').addEventListener('click', () => {
                 startLetInScenario();
             });
@@ -418,17 +443,29 @@
             });
         }
 
-        // --- СЦЕНАРІЙ 1: LET HIM IN ---
+        // --- СЦЕНАРІЙ 1: LET HIM IN (ФІНАЛЬНА СЦЕНА) ---
         function startLetInScenario() {
             switchScene('scene-choice', 'scene-let-in');
+            
             const video = document.getElementById('let-in-video');
+            const redirectBtn = document.getElementById('let-in-redirect-btn');
+
+            redirectBtn.classList.remove('show');
+
             video.src = ASSETS.videoLetIn;
             video.muted = isMuted; 
             video.load();
-            video.play();
+            video.play().catch(e => console.log("Помилка автоплею:", e));
+
+            redirectBtn.replaceWith(redirectBtn.cloneNode(true));
+            document.getElementById('let-in-redirect-btn').addEventListener('click', () => {
+                console.log("Redirecting to (via let-in button):", ASSETS.clickUrl);
+                window.open(ASSETS.clickUrl, '_self');
+            });
 
             video.onended = () => {
-                showFinalCTA();
+                document.getElementById('let-in-redirect-btn').classList.add('show');
+                console.log("Let in video ended. Button shown.");
             };
         }
 
@@ -571,7 +608,7 @@
             }
         }
 
-        // --- СЦЕНА 5: ФІНАЛ (CTA З ВІДЕО-ФОНОМ) ---
+        // --- СЦЕНА 5: ФІНАЛ ---
         function showFinalCTA() {
             document.getElementById('scene-let-in').classList.remove('active');
             document.getElementById('scene-hold-game').classList.remove('active');
@@ -580,6 +617,9 @@
             const finalVideo = document.getElementById('final-video');
             const ctaText = document.getElementById('cta-text');
             const ctaBtn = document.getElementById('cta-btn');
+
+            ctaText.classList.remove('show');
+            ctaBtn.classList.remove('show');
 
             finalVideo.src = ASSETS.videoFinal;
             finalVideo.muted = isMuted; 
@@ -594,7 +634,7 @@
             setTimeout(() => {
                 ctaText.classList.add('show');
                 ctaBtn.classList.add('show');
-            }, 500);
+            }, 2500);
 
             finalVideo.onended = () => {
                 console.log("Відео завершено.");

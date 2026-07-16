@@ -115,6 +115,11 @@
             0%, 100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
             50% { transform: translate(-50%, -50%) scale(1.05) rotate(-3deg); }
         }
+        /* Анімація кліку для руки-підказки */
+        @keyframes hint-tap {
+            0%, 100% { transform: translate(-50%, -50%) scale(1.1); }
+            50% { transform: translate(-50%, -50%) scale(0.9); }
+        }
 
         /* --- Сцена 1: Сплеш --- */
         #splash-bg {
@@ -204,12 +209,32 @@
             width: 80%;
             transition: opacity 0.5s ease, transform 0.5s ease;
             z-index: 5;
+            opacity: 0;
         }
         #hold-title.slide-up {
-            opacity: 0;
+            opacity: 0 !important;
             transform: translate(-50%, -50px);
         }
         
+        /* Рука-підказка, яка показує де клікати спочатку */
+        #hold-hint-hand {
+            position: absolute;
+            top: 55%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 22%;
+            z-index: 101;
+            pointer-events: none;
+            animation: hint-tap 1.2s infinite ease-in-out;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            opacity: 0; /* з'явиться разом із надписом */
+        }
+        #hold-hint-hand.slide-up {
+            opacity: 0 !important;
+            transform: translate(-50%, -100px); /* зникає вгору синхронно з тайтлом */
+        }
+
+        /* Основна ігрова рука, яка слідує за курсором */
         #hold-hand {
             position: absolute;
             top: 50%;
@@ -218,7 +243,8 @@
             width: 22%;
             z-index: 100;
             pointer-events: none;
-            transition: transform 0.1s cubic-bezier(0.25, 1, 0.5, 1); 
+            opacity: 0; /* прихована, доки гравець не активує ігровий режим */
+            transition: opacity 0.4s ease, transform 0.1s cubic-bezier(0.25, 1, 0.5, 1); 
         }
         .hand-waiting {
             animation: hand-idle 1.6s infinite ease-in-out;
@@ -239,8 +265,14 @@
             border: 2px solid #0d0000;
             border-radius: 10px;
             overflow: hidden;
-            display: none;
+            display: none; /* приховано за замовчуванням */
+            opacity: 0;
+            transition: opacity 0.5s ease;
             z-index: 5;
+        }
+        #progress-container.show {
+            display: block;
+            opacity: 1;
         }
         #progress-bar {
             width: 0%;
@@ -249,7 +281,7 @@
             transition: width 0.05s linear;
         }
 
-        /* --- Сцена 5: Фінал (CTA для вибору "Hold the door") --- */
+        /* --- Сцена 5: Фінал --- */
         #cta-btn {
             position: absolute;
             bottom: 20%;
@@ -309,7 +341,7 @@
             </div>
         </div>
 
-        <!-- СЦЕНА 4-1: Сценарій "Let him in" (Відео грає + кнопка з'являється в кінці) -->
+        <!-- СЦЕНА 4-1: Сценарій "Let him in" -->
         <div id="scene-let-in" class="scene">
             <video id="let-in-video" playsinline></video>
             <img id="let-in-redirect-btn" class="clickable" src="assets/let_in_intro_btn.png" alt="Get Offer Now">
@@ -319,6 +351,11 @@
         <div id="scene-hold-game" class="scene">
             <video id="hold-bg-video" playsinline muted></video> 
             <img id="hold-title" src="assets/hold_title.png" alt="Hold the Door!">
+            
+            <!-- Окрема рука-підказка для першого дотику -->
+            <img id="hold-hint-hand" src="assets/hand_hint_pointer.png" alt="Tap Hint Hand">
+            
+            <!-- Ігрова рука, що слідує за курсором -->
             <img id="hold-hand" class="hand-waiting" src="assets/hand_pointer.png" alt="Hand">
             
             <div id="progress-container">
@@ -356,10 +393,12 @@
         let isMuted = false;
         let holdTimer = null;
         let videoPlaybackTimer = null; 
+        let autoDismissTimer = null; 
         let holdProgress = 0; 
         const holdDuration = 5000; 
         const updateInterval = 40; 
         let isHolding = false;
+        let gameplayActive = false; // Позначає, що фаза підказки минула і триває власне гра
 
         function toggleMute() {
             isMuted = !isMuted;
@@ -428,7 +467,6 @@
                 choiceBg.currentTime = choiceBg.duration;
             };
 
-            // Запобігаємо подвоєнню подій кліків
             const btnLetIn = document.getElementById('btn-let-in');
             const btnHoldDoor = document.getElementById('btn-hold-door');
             btnLetIn.replaceWith(btnLetIn.cloneNode(true));
@@ -443,7 +481,7 @@
             });
         }
 
-        // --- СЦЕНАРІЙ 1: LET HIM IN (ФІНАЛЬНА СЦЕНА) ---
+        // --- СЦЕНАРІЙ 1: LET HIM IN ---
         function startLetInScenario() {
             switchScene('scene-choice', 'scene-let-in');
             
@@ -459,17 +497,15 @@
 
             redirectBtn.replaceWith(redirectBtn.cloneNode(true));
             document.getElementById('let-in-redirect-btn').addEventListener('click', () => {
-                console.log("Redirecting to (via let-in button):", ASSETS.clickUrl);
                 window.open(ASSETS.clickUrl, '_self');
             });
 
             video.onended = () => {
                 document.getElementById('let-in-redirect-btn').classList.add('show');
-                console.log("Let in video ended. Button shown.");
             };
         }
 
-        // --- СЦЕНАРІЙ 2: HOLD THE DOOR (МІНІ-ГРА) ---
+        // --- СЦЕНАРІЙ 2: HOLD THE DOOR ---
         function startHoldDoorScenario() {
             switchScene('scene-choice', 'scene-hold-game');
 
@@ -480,13 +516,26 @@
             holdBg.load();
             
             const title = document.getElementById('hold-title');
+            const hintHand = document.getElementById('hold-hint-hand');
             const hand = document.getElementById('hold-hand');
             const progressContainer = document.getElementById('progress-container');
             const progressBar = document.getElementById('progress-bar');
             
             const tensionSound = document.getElementById('snd-let-in-end');
 
+            gameplayActive = false;
+            
+            // Миттєво показуємо напис та руку-підказку без затримок
+            title.style.opacity = '1';
+            hintHand.style.opacity = '1';
+            hand.style.opacity = '0';
+            
+            tensionSound.loop = true;
+            applyGlobalMuteStateToElement(tensionSound);
+
             function moveHand(e) {
+                if (!gameplayActive) return;
+
                 const rect = gameContainer.getBoundingClientRect();
                 let x, y;
 
@@ -508,20 +557,57 @@
             gameContainer.addEventListener('mousemove', moveHand);
             gameContainer.addEventListener('touchmove', moveHand, { passive: true });
 
-            setTimeout(() => {
-                title.classList.add('slide-up');
-                progressContainer.style.display = 'block';
-                
-                tensionSound.loop = true;
-                applyGlobalMuteStateToElement(tensionSound);
-                tensionSound.play().catch(e => console.log("Звук заблоковано:", e));
+            // Одразу вішаємо слухачі на запуск гри
+            gameContainer.addEventListener('mousedown', triggerGameActivation);
+            gameContainer.addEventListener('touchstart', triggerGameActivation, { passive: true });
 
+            // Автоматичний запуск гри через 5 секунд неактивності
+            autoDismissTimer = setTimeout(() => {
+                triggerGameActivation();
+            }, 5000);
+
+            // Функція активації основної гри (викликається кліком або таймером)
+            function triggerGameActivation(e) {
+                if (gameplayActive) return;
+                
+                if (autoDismissTimer) clearTimeout(autoDismissTimer);
+
+                // Видаляємо тимчасовий слухач першого кліку
+                gameContainer.removeEventListener('mousedown', triggerGameActivation);
+                gameContainer.removeEventListener('touchstart', triggerGameActivation);
+
+                // 1. Синхронно ховаємо напис та підказку вгору
+                title.classList.add('slide-up');
+                hintHand.classList.add('slide-up');
+
+                setTimeout(() => {
+                    hintHand.style.display = 'none';
+                }, 500);
+
+                // 2. Активуємо ігровий режим
+                gameplayActive = true;
+
+                // 3. Плавно з'являється прогрес-бар та ігрова рука
+                progressContainer.classList.add('show');
+                hand.style.opacity = '1';
+
+                // Позиціонуємо ігрову руку під курсор/дотик
+                if (e) {
+                    moveHand(e);
+                }
+
+                // 4. Підключаємо основне керування утриманням
                 gameContainer.addEventListener('mousedown', startHolding);
                 gameContainer.addEventListener('touchstart', startHolding, { passive: true });
 
                 window.addEventListener('mouseup', stopHolding);
                 window.addEventListener('touchend', stopHolding);
-            }, 1500);
+
+                // Одразу починаємо утримання, якщо активація була кліком
+                if (e) {
+                    startHolding(e);
+                }
+            }
 
             function playVideoBackward() {
                 clearInterval(videoPlaybackTimer);
@@ -531,7 +617,7 @@
                     } else {
                         holdBg.currentTime = 0;
                         clearInterval(videoPlaybackTimer);
-                        if (!isHolding) {
+                        if (!isHolding && gameplayActive) {
                             holdBg.play().catch(e => {});
                         }
                     }
@@ -551,6 +637,7 @@
             }
 
             function startHolding(e) {
+                if (!gameplayActive) return;
                 if (isHolding) return;
                 isHolding = true;
 
@@ -559,7 +646,7 @@
 
                 playVideoForward(); 
                 
-                tensionSound.pause();
+                tensionSound.play().catch(e => console.log("Звук заблоковано:", e));
 
                 holdTimer = setInterval(() => {
                     holdProgress += (updateInterval / holdDuration) * 100;
@@ -580,14 +667,13 @@
 
                 playVideoBackward(); 
                 
-                tensionSound.loop = true;
-                applyGlobalMuteStateToElement(tensionSound);
-                tensionSound.play().catch(e => console.log("Блокування звуку:", e));
+                tensionSound.pause();
 
                 clearInterval(holdTimer);
             }
 
             function endHoldGame(success) {
+                if (autoDismissTimer) clearTimeout(autoDismissTimer);
                 clearInterval(holdTimer);
                 clearInterval(videoPlaybackTimer);
                 
@@ -636,12 +722,7 @@
                 ctaBtn.classList.add('show');
             }, 2500);
 
-            finalVideo.onended = () => {
-                console.log("Відео завершено.");
-            };
-
             ctaBtn.addEventListener('click', () => {
-                console.log("Redirecting to:", ASSETS.clickUrl);
                 window.open(ASSETS.clickUrl, '_self');
             });
         }
